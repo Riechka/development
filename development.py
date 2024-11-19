@@ -1,102 +1,225 @@
-class User:
-    #это черновой набросок кода,он скорее всего будет изменен,если можно,хотела бы усталашать парочку советов) 
-    def __init__(self, user_id, name, email, password, phone_number):
-        self.user_id = user_id
-        self.name = name
-        self.email = email
-        self.password = password
-        self.phone_number = phone_number
-        self.pets = []
-
-    def register(self):
-        print(f"Пользователь {self.name} зарегистрирован.")
-
-    def login(self):
-        print(f"Пользователь {self.name} вошел в систему.")
-
-    def logout(self):
-        print(f"Пользователь {self.name} вышел из системы.")
-
-    def create_profile(self, pet):
-        self.pets.append(pet)
-        print(f"Профиль питомца {pet.name} создан.")
-
-    def view_profile(self):
-        for pet in self.pets:
-            print(f"Питомец: {pet.name}, Возраст: {pet.age}, Порода: {pet.breed}")
+import easygui
+import src.Globals as Globals
+import src.hash_func as hf
+import keyboard
+import pygame
+import random
+import src.show_func as shf
+import src.stat_func as stf
+import src.supp_func as sf
+import time
 
 
-class Pet:
-    def __init__(self, pet_id, name, age, breed, description, owner_id):
-        self.pet_id = pet_id
-        self.name = name
-        self.age = age
-        self.breed = breed
-        self.description = description
-        self.owner_id = owner_id
-        self.likes = []
-
-    def create_pet_profile(self):
-        print(f"Профиль питомца {self.name} создан.")
-
-    def update_pet_profile(self, name=None, age=None, breed=None, description=None):
-        if name:
-            self.name = name
-        if age:
-            self.age = age
-        if breed:
-            self.breed = breed
-        if description:
-            self.description = description
-        print(f"Профиль питомца {self.name} обновлен.")
-
-    def delete_pet_profile(self):
-        print(f"Профиль питомца {self.name} удален.")
-
-    def like_pet(self, other_pet):
-        if other_pet not in self.likes:
-            self.likes.append(other_pet)
-            print(f"{self.name} лайкнул питомца {other_pet.name}.")
-
-    def dislike_pet(self, other_pet):
-        if other_pet in self.likes:
-            self.likes.remove(other_pet)
-            print(f"{self.name} дизлайкнул питомца {other_pet.name}.")
+def choose_level_num(chosen_list):
+    """Gives user ability to choose level and start game"""
+    sf.fill_gradient()
+    while 1:
+        shf.esc_to_end_show()
+        shf.level_num_show()
+        pygame.time.wait(200)
+        rk = keyboard.read_key()
+        if rk.isnumeric() and Globals.Globals.THE_FIRST_LEVEL <= int(rk) <= Globals.Globals.THE_LAST_LEVEL:
+            Globals.Globals.screen.blit(Globals.Globals.img, (0, 0))
+            pygame.display.update()
+            random_list = random.choices(chosen_list[int(rk)], k=Globals.Globals.LEN_STRING)
+            random_string = "".join(random_list)
+            start_game(random_string)
+            break
+        elif rk == "esc":
+            break
+        else:
+            sf.no_option()
 
 
-class Message:
-    def __init__(self, message_id, sender_id, receiver_id, content):
-        self.message_id = message_id
-        self.sender_id = sender_id
-        self.receiver_id = receiver_id
-        self.content = content
+def level_type(rktype):
+    """Returns chosen level_type"""
+    if rktype == "f":
+        return Globals.Globals.Junior_levels
+    elif rktype == "s":
+        return Globals.Globals.Middle_levels
+    elif rktype == "t":
+        return Globals.Globals.Senior_levels
+    elif rktype == "d":
+        return Globals.Globals.Developer_levels
+    else:
+        return 0
 
-    def send_message(self):
-        print(f"Сообщение от {self.sender_id} к {self.receiver_id}: {self.content}")
 
-    def receive_message(self):
-        print(f"Получено сообщение от {self.sender_id}: {self.content}")
+def choose_level_type():
+    """Gives User to choose difficulty and call choose_level_num()"""
+    sf.fill_gradient()
+    while 1:
+        shf.esc_to_end_show()
+        shf.type_level_show()
+        pygame.time.wait(400)
+        rktype = keyboard.read_key()
+        chosen_list = level_type(rktype)
+        if chosen_list != 0:
+            choose_level_num(chosen_list)
+            break
+        elif rktype == "esc":
+            break
+        else:
+            sf.no_option()
+
+def update_next_iter(start_time, lci, mistakes, correct_string):
+    Globals.Globals.screen.blit(Globals.Globals.img, (0, 0))
+    shf.correct_string_show(correct_string, lci)
+    shf.online_stat_show(start_time, lci, mistakes)
+    pygame.time.wait(150)
+
+
+def show_end_stat(start_time, lci, mistakes):
+    Globals.Globals.screen.blit(Globals.Globals.img, (0, 0))
+    pygame.display.update()
+    shf.online_stat_show(start_time, lci, mistakes)
+    pygame.time.wait(500)
+
+
+def process_update_stat(start_time, lci, mistakes):
+    online_delta = time.time() - start_time
+    speed = sf.to_fixed(lci * 60 / online_delta, 1)
+    stf.stat_append(speed, mistakes)
+
+
+def process_else_variant(mistakes, lci, correct_string ):
+    mistakes += 1
+    shf.cat_show()
+    pygame.time.wait(100)
+    cs = correct_string[lci]
+    if cs == " " or cs == "_":
+        cs = "space"
+    hf.hash_append(cs)
+    return mistakes, lci-1
+
+def update_show_end_stat(start_time, lci, mistakes):
+    process_update_stat(start_time, lci, mistakes)
+    show_end_stat(start_time, lci, mistakes)
+
+
+def start_game(correct_string):
+    """Starts game with correct_string"""
+    mistakes, lci, start_time = 0, 0, time.time() # len_correct_input
+    shf.esc_to_end_show()
+    shf.correct_string_show(correct_string, lci)
+    while lci < len(correct_string):
+        update_next_iter(start_time, lci, mistakes, correct_string)
+        rk = keyboard.read_key()
+        if rk == correct_string[lci]:
+            shf.correct_string_show(correct_string, lci)
+        elif rk == "shift":
+            continue
+        elif rk == "space" and correct_string[lci] == "_":
+            sf.space_underline(correct_string, lci)
+        elif rk == "esc":
+            return 1
+        else:
+            mistakes, lci = process_else_variant(mistakes, lci, correct_string )
+        lci += 1
+    update_show_end_stat(start_time, lci, mistakes)
+
+
+
+
+
+def load_file():
+    """Loading file from openbox"""
+    count_read_in_file = 30
+    input_file = easygui.fileopenbox(filetypes=["*.docx"])
+    if not input_file:
+        return 0
+    file = open(input_file, 'r')
+    res = 0
+    while 1:
+        line = file.read(count_read_in_file)
+        if not line or res:
+            break
+        new_line = sf.change_space_on_underline(line)
+        res = start_game(new_line)
+        cover_rect = (Globals.Globals.COORD_OF_STRING[0],
+                      Globals.Globals.COORD_OF_STRING[1], count_read_in_file * 50, 80)
+        pygame.draw.rect(Globals.Globals.screen, Globals.Globals.COLOUR_SCREEN_FILL, cover_rect)
+        pygame.display.update()
+
+
+class Menu:
+    """Menu """
+    def __init__(self):
+        """Initializes Menu options, callbacks, current_option"""
+        self._options = []
+        self._callbacks = []
+        self._current_option_index = 0
+
+    def append_option(self, option, callback):
+        """Appends option"""
+        self._options.append(Globals.Globals.ARIAL_90.render(option, True, Globals.Globals.COLOUR_OF_MENU_TEXT))
+        self._callbacks.append(callback)
+
+    def switch(self, direction):
+        """Chooses option which is available"""
+        self._current_option_index = max(0, min(self._current_option_index + direction, len(self._options) - 1))
+
+    def select(self):
+        """Select current option"""
+        self._callbacks[self._current_option_index]()
+
+    def draw(self, surf, x, y, option_y_padding):
+        """Draws options of Menu starting from point with x and y coordinates"""
+        for i, option in enumerate(self._options):
+            option_rect: pygame.Rect = option.get_rect()
+            option_rect.topleft = (x, y + i * option_y_padding)
+            if i == self._current_option_index:
+                pygame.draw.rect(surf, Globals.Globals.COLOUR_OF_MENU_RECTANGLE, option_rect, 3)
+            surf.blit(option, option_rect)
+
+
+# RUNNING = True
+def quit_game():
+    """Quite game"""
+    Globals.Globals.RUNNING = False
+
+
+def menu_create():
+    """Creates menu"""
+    menu = Menu()
+    menu.append_option("Choose_Level", choose_level_type)
+    menu.append_option('Load_File', load_file)
+    menu.append_option('Statistics', shf.stat_show)
+    menu.append_option('Hash', shf.hash_show)
+    menu.append_option('Help', shf.help_show)
+    menu.append_option('Quit', quit_game)
+    return menu
+
+
+def processing_keydown(e, menu):
+    """Processing keydown"""
+    if e.key == pygame.K_UP:
+        menu.switch(-1)
+    elif e.key == pygame.K_DOWN:
+        menu.switch(1)
+    elif e.key == pygame.K_RETURN:
+        menu.select()
 
 
 def main():
-    user1 = User(1, "Иван", "ivan@example.com", "password", "+71234567890")
-    user1.register()
-    user1.login()
+    """Processing Keyboard"""
+    menu = menu_create()
+    FPS = 100
+    clock = pygame.time.Clock()
+    while Globals.Globals.RUNNING:
+        menu_x = Globals.Globals.size[0] // 2 - 200
+        menu_y = 50
+        len_between_options = 125
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                quit_game()
+            if e.type == pygame.KEYDOWN:
+                processing_keydown(e, menu)
 
-    pet1 = Pet(1, "Барсик", 3, "Шотландская веслоухая", "Добрый котик", user1.user_id)
-    pet1.create_pet_profile()
-    user1.create_profile(pet1)
+        clock.tick(FPS)
+        Globals.Globals.screen.blit(Globals.Globals.img, (0, 0))
+        menu.draw(Globals.Globals.screen, menu_x, menu_y, len_between_options)
+        pygame.display.flip()
 
-    pet2 = Pet(2, "Шарик", 5, "Немецкая овчарка", "Смешной песик", user1.user_id)
-    pet2.create_pet_profile()
-    user1.create_profile(pet2)
 
-    user1.view_profile()
-
-    pet1.like_pet(pet2)
-
-    message = Message(1, user1.user_id, 2, "Привет! Интересный питомец!")
-    message.send_message()
-
-if __name__ == "__main__":
-    main()
+main()
