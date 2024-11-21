@@ -9,7 +9,6 @@ import src.stat_func as stf
 import src.supp_func as sf
 import time
 
-
 def choose_level_num(chosen_list):
     """Gives user ability to choose level and start game"""
     sf.fill_gradient()
